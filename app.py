@@ -119,14 +119,14 @@ def handle_auth():
     try:
         data = request.get_json(force=True)
         if not data:
-            return jsonify({"status": "ERROR", "message": "Invalid JSON"}), 400
+            return jsonify({"status": "ERROR", "message": "Invalid JSON"}), 200
 
         licence = data.get("licence")
         device_uuid = data.get("uuid")
         timestamp = data.get("timestamp")
 
         if not licence or not device_uuid or not timestamp:
-            return jsonify({"status": "ERROR", "message": "Missing fields (licence, uuid, timestamp)"}), 400
+            return jsonify({"status": "ERROR", "message": "Missing fields (licence, uuid, timestamp)"}), 200
 
         strict_mode = get_settings()
         keys = get_all_keys()
@@ -142,7 +142,7 @@ def handle_auth():
                 return jsonify({
                     "status": "ERROR",
                     "message": "Licence Key Expired!"
-                }), 400
+                }), 200
 
             expire_date_str = key_info["expire_at"]
             max_dev = key_info.get("max_devices", 1)
@@ -155,7 +155,7 @@ def handle_auth():
             return jsonify({
                 "status": "ERROR",
                 "message": "Invalid Licence Key!"
-            }), 400
+            }), 200
 
         # Successful Auth Response
         response = {
@@ -173,7 +173,7 @@ def handle_auth():
         return jsonify(response), 200
 
     except Exception as e:
-        return jsonify({"status": "ERROR", "message": str(e)}), 500
+        return jsonify({"status": "ERROR", "message": str(e)}), 200
 
 
 # -------------------------------------------------------------
