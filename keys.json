@@ -1,0 +1,9 @@
+{
+    "strict_mode": true,
+    "keys": {
+        "DIMZ-ADMIN-888": {
+            "max_devices": 10,
+            "expire_at": "2030-12-31 23:59:59"
+        }
+    }
+}

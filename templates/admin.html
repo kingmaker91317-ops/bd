@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DimzMods - License Key Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', system-ui, sans-serif; }
+        .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; }
+        .table { color: #f8fafc; }
+        .badge-active { background-color: #059669; }
+        .badge-expired { background-color: #dc2626; }
+        .btn-custom { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; font-weight: 600; border: none; }
+        .btn-custom:hover { background: linear-gradient(135deg, #4f46e5, #4338ca); color: white; }
+    </style>
+</head>
+<body class="py-4">
+    <div class="container">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary">
+            <div>
+                <h2 class="fw-bold text-primary mb-1"><i class="bi bi-shield-lock-fill me-2"></i>DimzMods Key Manager</h2>
+                <p class="text-secondary mb-0">Manage license keys and server verification settings</p>
+            </div>
+            <div class="text-end">
+                <span class="badge bg-success fs-6 px-3 py-2 mb-1"><i class="bi bi-circle-fill text-light me-1" style="font-size:0.6rem;"></i> Server Active</span>
+                <br>
+                <small class="text-muted"><i class="bi bi-database-fill me-1"></i>Storage: <strong>{{ storage_type }}</strong></small>
+            </div>
+        </div>
+
+        {% if message %}
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="bi bi-info-circle-fill me-2"></i>{{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endif %}
+
+        <div class="row g-4">
+            <!-- Create Key Form -->
+            <div class="col-lg-4">
+                <div class="card p-4 shadow-lg">
+                    <h4 class="fw-bold mb-3"><i class="bi bi-key-fill text-warning me-2"></i>Create New Key</h4>
+                    <form action="/admin/create" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label text-secondary">Key Prefix / Name (Optional)</label>
+                            <input type="text" name="key_name" class="form-control bg-dark text-light border-secondary" placeholder="e.g. VIP-USER">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary">Validity Duration</label>
+                            <select name="duration_days" class="form-select bg-dark text-light border-secondary">
+                                <option value="1">1 Day</option>
+                                <option value="7">7 Days</option>
+                                <option value="30" selected>30 Days (1 Month)</option>
+                                <option value="90">90 Days (3 Months)</option>
+                                <option value="365">365 Days (1 Year)</option>
+                                <option value="9999">Lifetime (Unlimited)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary">Max Allowed Devices</label>
+                            <input type="number" name="max_devices" class="form-control bg-dark text-light border-secondary" value="1" min="1">
+                        </div>
+                        <button type="submit" class="btn btn-custom w-100 py-2"><i class="bi bi-plus-circle-fill me-2"></i>Generate Key</button>
+                    </form>
+                </div>
+
+                <!-- Server Mode Toggle -->
+                <div class="card p-4 mt-4 shadow-lg">
+                    <h5 class="fw-bold mb-2"><i class="bi bi-sliders text-info me-2"></i>Verification Mode</h5>
+                    <p class="text-secondary small mb-3">
+                        Strict Mode: Only listed keys can log in.<br>
+                        Free Mode: Any random key can log in with default expiry.
+                    </p>
+                    <form action="/admin/toggle-mode" method="POST">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" name="strict_mode" id="strictSwitch" {% if strict_mode %}checked{% endif %} onchange="this.form.submit()">
+                            <label class="form-check-label fw-bold" for="strictSwitch">
+                                {% if strict_mode %}<span class="text-success">Strict Mode (Key Required)</span>{% else %}<span class="text-warning">Free Mode (Any Key Works)</span>{% endif %}
+                            </label>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Manage Keys Table -->
+            <div class="col-lg-8">
+                <div class="card p-4 shadow-lg">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="fw-bold mb-0"><i class="bi bi-list-task me-2 text-primary"></i>Active License Keys</h4>
+                        <span class="badge bg-secondary fs-6">{{ keys|length }} Keys Total</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-dark border-secondary">
+                                <tr>
+                                    <th>Key String</th>
+                                    <th>Max Devices</th>
+                                    <th>Expiry Date</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if keys %}
+                                    {% for k in keys %}
+                                    <tr>
+                                        <td class="fw-bold text-monospace font-monospace text-info">{{ k.key }}</td>
+                                        <td>{{ k.max_devices }}</td>
+                                        <td class="small">{{ k.expire_at }}</td>
+                                        <td>
+                                            {% if k.is_expired %}
+                                                <span class="badge badge-expired px-2 py-1">Expired</span>
+                                            {% else %}
+                                                <span class="badge badge-active px-2 py-1">Active</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="/admin/delete/{{ k.key }}" class="btn btn-outline-danger btn-sm" onclick="return confirm('Are you sure you want to delete this key?')">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center text-secondary py-4">No keys generated yet. Use the form on the left to create a key.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
