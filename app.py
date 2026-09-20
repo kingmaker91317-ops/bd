@@ -122,8 +122,8 @@ def handle_auth():
         if not data:
             return jsonify({"status": "ERROR", "message": "Invalid JSON"}), 400
 
-        licence = data.get("licence")
-        device_uuid = data.get("uuid")
+        licence = str(data.get("licence", "")).strip()
+        device_uuid = str(data.get("uuid", "")).strip()
         timestamp = data.get("timestamp")
 
         if not licence or not device_uuid or not timestamp:
@@ -246,4 +246,3 @@ def toggle_mode():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
-    
