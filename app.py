@@ -158,11 +158,15 @@ def handle_auth():
                 "message": "Invalid Licence Key!"
             }), 200
 
-        # Compute dynamic HMAC signatures matching binary expected security hash
-        combined_str = f"{licence}:{device_uuid}:{expire_date_str}"
-        dynamic_sig = hashlib.sha256(combined_str.encode('utf-8')).hexdigest()
-        dynamic_canary = hashlib.sha256(f"canary:{licence}:{timestamp}".encode('utf-8')).hexdigest()
-        dynamic_offset_hmac = hashlib.sha256(f"offset:{device_uuid}:{timestamp}".encode('utf-8')).hexdigest()
+        # Compute exact Netlify-compatible signature hash
+        sig_raw = f"{licence}{device_uuid}{expire_date_str}DimzMods".encode('utf-8')
+        dynamic_sig = hashlib.sha256(sig_raw).hexdigest()
+        
+        canary_raw = f"{licence}{timestamp}".encode('utf-8')
+        dynamic_canary = hashlib.sha256(canary_raw).hexdigest()
+        
+        hmac_raw = f"{device_uuid}{timestamp}".encode('utf-8')
+        dynamic_offset_hmac = hashlib.sha256(hmac_raw).hexdigest()
 
         # Successful Auth Response
         response = {
