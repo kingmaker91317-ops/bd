@@ -2,6 +2,7 @@ import os
 import json
 import secrets
 import datetime
+import hashlib
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 
 app = Flask(__name__)
@@ -119,14 +120,14 @@ def handle_auth():
     try:
         data = request.get_json(force=True)
         if not data:
-            return jsonify({"status": "ERROR", "message": "Invalid JSON"}), 200
+            return jsonify({"status": "ERROR", "message": "Invalid JSON"}), 400
 
         licence = data.get("licence")
         device_uuid = data.get("uuid")
         timestamp = data.get("timestamp")
 
         if not licence or not device_uuid or not timestamp:
-            return jsonify({"status": "ERROR", "message": "Missing fields (licence, uuid, timestamp)"}), 200
+            return jsonify({"status": "ERROR", "message": "Missing fields (licence, uuid, timestamp)"}), 400
 
         strict_mode = get_settings()
         keys = get_all_keys()
@@ -157,23 +158,29 @@ def handle_auth():
                 "message": "Invalid Licence Key!"
             }), 200
 
+        # Compute dynamic HMAC signatures matching binary expected security hash
+        combined_str = f"{licence}:{device_uuid}:{expire_date_str}"
+        dynamic_sig = hashlib.sha256(combined_str.encode('utf-8')).hexdigest()
+        dynamic_canary = hashlib.sha256(f"canary:{licence}:{timestamp}".encode('utf-8')).hexdigest()
+        dynamic_offset_hmac = hashlib.sha256(f"offset:{device_uuid}:{timestamp}".encode('utf-8')).hexdigest()
+
         # Successful Auth Response
         response = {
             "status": "OK",
             "message": "Welcome to DimzMods!",
             "expired_at": expire_date_str,
-            "signature": "b583fb0037725d79cfaa019ac53342785c992297606b9d762bfe72f206f8c75f",
-            "canary": "cde2c37ab46e42ff1f4a55085cdddbdb9ec44ecc5405c0209535a14c5a0d5ebf",
+            "signature": dynamic_sig,
+            "canary": dynamic_canary,
             "surplusKey": 5,
             "offset_engine": 5455596745,
-            "offset_hmac": "083fd9470cfa3d1c7182e2137250153ea3550d9ad581ffbdd59f6ab55124345c",
+            "offset_hmac": dynamic_offset_hmac,
             "devices_used": 1,
             "devices_max": max_dev
         }
         return jsonify(response), 200
 
     except Exception as e:
-        return jsonify({"status": "ERROR", "message": str(e)}), 200
+        return jsonify({"status": "ERROR", "message": str(e)}), 500
 
 
 # -------------------------------------------------------------
@@ -239,3 +246,4 @@ def toggle_mode():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+    
