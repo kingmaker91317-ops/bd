@@ -2,7 +2,7 @@ import os
 import json
 import secrets
 import datetime
-import hashlib
+import urllib.request
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 
 app = Flask(__name__)
@@ -10,7 +10,6 @@ app = Flask(__name__)
 # -------------------------------------------------------------
 # DATABASE PERSISTENCE SETUP
 # 1. External Cloud DB (MongoDB Atlas) - RECOMMENDED
-#    Set environment variable MONGO_URI in Render dashboard
 # 2. Local Fallback (keys.json file)
 # -------------------------------------------------------------
 MONGO_URI = os.environ.get("MONGO_URI", "")
@@ -113,28 +112,28 @@ def remove_key(key_name):
 
 
 # -------------------------------------------------------------
-# 1. AUTHENTICATION ENDPOINT (Matches App Binary)
+# 1. AUTHENTICATION ENDPOINT (With Signature Passthrough)
 # -------------------------------------------------------------
 @app.route('/dimzff', methods=['POST'])
 def handle_auth():
     try:
         data = request.get_json(force=True)
         if not data:
-            return jsonify({"status": "ERROR", "message": "Invalid JSON"}), 400
+            return jsonify({"status": "ERROR", "message": "Invalid JSON"}), 200
 
         licence = str(data.get("licence", "")).strip()
         device_uuid = str(data.get("uuid", "")).strip()
         timestamp = data.get("timestamp")
 
         if not licence or not device_uuid or not timestamp:
-            return jsonify({"status": "ERROR", "message": "Missing fields (licence, uuid, timestamp)"}), 400
+            return jsonify({"status": "ERROR", "message": "Missing fields (licence, uuid, timestamp)"}), 200
 
         strict_mode = get_settings()
         keys = get_all_keys()
 
         now = datetime.datetime.now()
 
-        # Check key validity
+        # Check key validity against Admin Panel database
         if licence in keys:
             key_info = keys[licence]
             expire_dt = datetime.datetime.strptime(key_info["expire_at"], "%Y-%m-%d %H:%M:%S")
@@ -158,33 +157,27 @@ def handle_auth():
                 "message": "Invalid Licence Key!"
             }), 200
 
-        # Compute exact Netlify-compatible signature hash
-        sig_raw = f"{licence}{device_uuid}{expire_date_str}DimzMods".encode('utf-8')
-        dynamic_sig = hashlib.sha256(sig_raw).hexdigest()
+        # Fetch authentic signature from original engine
+        remote_url = 'https://my-asylum1.netlify.app/dimzff'
+        payload_bytes = json.dumps({"licence": licence, "uuid": device_uuid, "timestamp": timestamp}).encode('utf-8')
         
-        canary_raw = f"{licence}{timestamp}".encode('utf-8')
-        dynamic_canary = hashlib.sha256(canary_raw).hexdigest()
+        req = urllib.request.Request(
+            remote_url,
+            data=payload_bytes,
+            headers={'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0'}
+        )
         
-        hmac_raw = f"{device_uuid}{timestamp}".encode('utf-8')
-        dynamic_offset_hmac = hashlib.sha256(hmac_raw).hexdigest()
+        with urllib.request.urlopen(req) as resp:
+            remote_response = json.loads(resp.read().decode('utf-8'))
 
-        # Successful Auth Response
-        response = {
-            "status": "OK",
-            "message": "Welcome to DimzMods!",
-            "expired_at": expire_date_str,
-            "signature": dynamic_sig,
-            "canary": dynamic_canary,
-            "surplusKey": 5,
-            "offset_engine": 5455596745,
-            "offset_hmac": dynamic_offset_hmac,
-            "devices_used": 1,
-            "devices_max": max_dev
-        }
-        return jsonify(response), 200
+        # Override expiry date and max devices with Admin Panel settings
+        remote_response["expired_at"] = expire_date_str
+        remote_response["devices_max"] = max_dev
+
+        return jsonify(remote_response), 200
 
     except Exception as e:
-        return jsonify({"status": "ERROR", "message": str(e)}), 500
+        return jsonify({"status": "ERROR", "message": str(e)}), 200
 
 
 # -------------------------------------------------------------
