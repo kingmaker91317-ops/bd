@@ -170,8 +170,7 @@ def handle_auth():
         with urllib.request.urlopen(req) as resp:
             remote_response = json.loads(resp.read().decode('utf-8'))
 
-        # Override expiry date and max devices with Admin Panel settings
-        remote_response["expired_at"] = expire_date_str
+        # Override max devices with Admin Panel settings
         remote_response["devices_max"] = max_dev
 
         return jsonify(remote_response), 200
